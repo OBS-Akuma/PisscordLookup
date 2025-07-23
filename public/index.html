@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Pisscord</title>
+  <title>Pisscord with Tooltips</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
@@ -51,21 +51,46 @@
       height: 48px;
       border-radius: 6px;
       transition: transform 0.2s ease;
+      position: relative;
+      cursor: default;
     }
     .badge:hover {
       transform: scale(1.1);
       filter: drop-shadow(0 0 6px #777);
+    }
+    /* Tooltip styles */
+    .tooltip {
+      position: absolute;
+      bottom: 110%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.85);
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease-in-out;
+      z-index: 10;
+    }
+    .badge:hover .tooltip {
+      opacity: 1;
     }
     #error {
       color: #ff4d4d;
       background: #1a0000;
       padding: 1rem;
       border-radius: 8px;
+      max-width: 420px;
+      margin: 2rem;
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <div class="card" id="content">Loading...</div>
+  <div id="content" class="card">Loading...</div>
 
   <script>
     const id = new URLSearchParams(location.search).get("id");
@@ -98,6 +123,17 @@
       131072: "VERIFIED_DEVELOPER"
     };
 
+    // Helper: dedupe badges by URL
+    function dedupeBadges(badges) {
+      const seen = new Set();
+      return badges.filter(b => {
+        const url = typeof b === "string" ? b : b.badge || "";
+        if (seen.has(url)) return false;
+        seen.add(url);
+        return true;
+      });
+    }
+
     async function load() {
       if (!id) {
         content.innerHTML = `<div id="error">Missing <code>?id=</code> in URL.</div>`;
@@ -105,49 +141,75 @@
       }
 
       try {
-        const [userRes, badgeRes] = await Promise.all([
+        // Fetch user and two badge JSON sources
+        const [userRes, badgeRes1, badgeRes2] = await Promise.all([
           fetch(`/api?id=${id}`),
-          fetch("https://obs-akuma.github.io/PisscordLookup/Badges.json") 
+          fetch("https://obs-akuma.github.io/PisscordLookup/Badges.json"),
+          fetch("https://badges.vencord.dev/badges.json")
         ]);
 
-        const user = await userRes.json();
-        const badgeData = await badgeRes.json();
+        if (!userRes.ok) throw new Error(`User API error: ${userRes.status}`);
+        if (!badgeRes1.ok) throw new Error(`Badge API 1 error: ${badgeRes1.status}`);
+        if (!badgeRes2.ok) throw new Error(`Badge API 2 error: ${badgeRes2.status}`);
 
+        const user = await userRes.json();
         if (user.error) {
           content.innerHTML = `<div id="error">User not found.</div>`;
           return;
         }
 
+        const badgeData1 = await badgeRes1.json();
+        const badgeData2 = await badgeRes2.json();
+
         const publicFlags = user.public_flags ?? 0;
         const systemBadges = Object.entries(flagsMap)
-          .filter(([bit, _]) => (publicFlags & bit) != 0)
-          .map(([_, name]) => badgeIcons[name])
-          .filter(Boolean);
+          .filter(([bit]) => (publicFlags & bit) !== 0)
+          .map(([_, name]) => ({
+            badge: badgeIcons[name],
+            tooltip: name.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+          }))
+          .filter(b => b.badge);
 
-        const customBadges = (badgeData[id] || []).map(b => b.badge);
+        const customBadges1 = (badgeData1[id] || []).map(b => ({
+          badge: b.badge,
+          tooltip: b.tooltip || ""
+        }));
+        const customBadges2 = (badgeData2[id] || []).map(b => ({
+          badge: b.badge,
+          tooltip: b.tooltip || ""
+        }));
+
+        let allBadges = [...systemBadges, ...customBadges1, ...customBadges2];
+        allBadges = dedupeBadges(allBadges);
 
         const avatarUrl = user.avatar
           ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
           : `https://cdn.discordapp.com/embed/avatars/0.png`;
 
         let badgeImgs = "";
-
-        if (systemBadges.length > 0 || customBadges.length > 0) {
+        if (allBadges.length > 0) {
           badgeImgs = `<div class="badges">` +
-            [...systemBadges, ...customBadges]
-              .map(badge => `<img class="badge" src="${badge}">`)
-              .join("") +
+            allBadges
+              .map(({ badge, tooltip }) => `
+                <div class="badge" tabindex="0">
+                  <img src="${badge}" alt="Badge">
+                  ${tooltip ? `<div class="tooltip">${tooltip}</div>` : ""}
+                </div>
+              `).join("") +
             `</div>`;
         }
 
         content.innerHTML = `
-          <img class="avatar" src="${avatarUrl}" alt="avatar">
-          <div class="username">${user.username}${user.discriminator !== "0" ? `#${user.discriminator}` : ""}</div>
-          <div class="id">${user.id}</div>
-          ${badgeImgs}
+          <div class="card">
+            <img class="avatar" src="${avatarUrl}" alt="avatar">
+            <div class="username">${user.username}${user.discriminator !== "0" ? `#${user.discriminator}` : ""}</div>
+            <div class="id">${user.id}</div>
+            ${badgeImgs}
+          </div>
         `;
-      } catch (err) {
-        content.innerHTML = `<div id="error">Failed to load user.</div>`;
+      } catch (error) {
+        console.error(error);
+        content.innerHTML = `<div id="error">Error: ${error.message}</div>`;
       }
     }
 
