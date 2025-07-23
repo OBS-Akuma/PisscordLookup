@@ -107,7 +107,7 @@
       try {
         const [userRes, badgeRes] = await Promise.all([
           fetch(`/api?id=${id}`),
-          fetch("") 
+          fetch("https://raw.githubusercontent.com/OBS-Akuma/PisscordLookup/refs/heads/main/Badges.json") 
         ]);
 
         const user = await userRes.json();
