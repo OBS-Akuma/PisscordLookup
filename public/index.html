@@ -107,7 +107,7 @@
       try {
         const [userRes, badgeRes] = await Promise.all([
           fetch(`/api?id=${id}`),
-          fetch("https://raw.githubusercontent.com/OBS-Akuma/PisscordLookup/refs/heads/main/Badges.json")
+          fetch("https://obs-akuma.github.io/PisscordLookup/Badges.json") 
         ]);
 
         const user = await userRes.json();
@@ -124,8 +124,7 @@
           .map(([_, name]) => badgeIcons[name])
           .filter(Boolean);
 
-        // Use entire object for custom badges to get tooltip
-        const customBadges = (badgeData[id] || []);
+        const customBadges = (badgeData[id] || []).map(b => b.badge);
 
         const avatarUrl = user.avatar
           ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
@@ -135,10 +134,9 @@
 
         if (systemBadges.length > 0 || customBadges.length > 0) {
           badgeImgs = `<div class="badges">` +
-            [
-              ...systemBadges.map(url => `<img class="badge" src="${url}">`),
-              ...customBadges.map(b => `<img class="badge" src="${b.badge}" title="${b.tooltip || ''}">`)
-            ].join("") +
+            [...systemBadges, ...customBadges]
+              .map(badge => `<img class="badge" src="${badge}">`)
+              .join("") +
             `</div>`;
         }
 
