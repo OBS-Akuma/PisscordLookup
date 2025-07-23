@@ -30,7 +30,6 @@
       border-radius: 50%;
       box-shadow: 0 0 0 3px #5865f2;
       margin-bottom: 1rem;
-      transition: box-shadow 0.3s ease;
     }
     .username {
       font-size: 1.6rem;
@@ -40,31 +39,6 @@
       font-size: 0.9rem;
       color: #aaa;
       margin-bottom: 1.5rem;
-      user-select: all;
-    }
-    .bot-tag {
-      background: #7289da;
-      color: white;
-      font-weight: bold;
-      font-size: 0.75rem;
-      padding: 2px 6px;
-      border-radius: 4px;
-      display: inline-block;
-      margin-left: 0.5rem;
-      vertical-align: middle;
-    }
-    .created {
-      font-size: 0.9rem;
-      margin-bottom: 1rem;
-      color: #ccc;
-    }
-    .banner {
-      width: 100%;
-      max-height: 120px;
-      object-fit: cover;
-      border-radius: 12px;
-      margin-bottom: 1rem;
-      box-shadow: 0 0 10px #5865f2;
     }
     .badges {
       display: flex;
@@ -77,7 +51,6 @@
       height: 48px;
       border-radius: 6px;
       transition: transform 0.2s ease;
-      cursor: default;
     }
     .badge:hover {
       transform: scale(1.1);
@@ -125,12 +98,6 @@
       131072: "VERIFIED_DEVELOPER"
     };
 
-    // Discord snowflake timestamp helper
-    function getCreationDateFromSnowflake(snowflake) {
-      const DISCORD_EPOCH = 1420070400000;
-      return new Date((BigInt(snowflake) >> 22n) + BigInt(DISCORD_EPOCH));
-    }
-
     async function load() {
       if (!id) {
         content.innerHTML = `<div id="error">Missing <code>?id=</code> in URL.</div>`;
@@ -140,7 +107,7 @@
       try {
         const [userRes, badgeRes] = await Promise.all([
           fetch(`/api?id=${id}`),
-          fetch("https://obs-akuma.github.io/PisscordLookup/Badges.json")
+          fetch("https://obs-akuma.github.io/PisscordLookup/Badges.json") 
         ]);
 
         const user = await userRes.json();
@@ -151,82 +118,36 @@
           return;
         }
 
-        // Build system badges from flags
         const publicFlags = user.public_flags ?? 0;
         const systemBadges = Object.entries(flagsMap)
-          .filter(([bit, _]) => (publicFlags & bit) !== 0)
+          .filter(([bit, _]) => (publicFlags & bit) != 0)
           .map(([_, name]) => badgeIcons[name])
           .filter(Boolean);
 
-        // Custom badges with tooltip from badgeData
-        const customBadges = (badgeData[id] || []).map(b => {
-          return { url: b.badge, tooltip: b.tooltip || "" };
-        });
+        const customBadges = (badgeData[id] || []).map(b => b.badge);
 
-        // User avatar URL, fallback avatar
         const avatarUrl = user.avatar
           ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
           : `https://cdn.discordapp.com/embed/avatars/0.png`;
 
-        // User banner URL if present
-        const bannerUrl = user.banner
-          ? `https://cdn.discordapp.com/banners/${user.id}/${user.banner}.png?size=512`
-          : null;
-
-        // Calculate account creation date
-        const createdDate = getCreationDateFromSnowflake(user.id);
-        const createdStr = createdDate.toLocaleDateString(undefined, {
-          year: "numeric", month: "long", day: "numeric"
-        });
-
-        // Accent color as border around avatar if exists
-        const accentColor = user.accent_color
-          ? `#${user.accent_color.toString(16).padStart(6, "0")}`
-          : null;
-
-        // Compose badges HTML
         let badgeImgs = "";
+
         if (systemBadges.length > 0 || customBadges.length > 0) {
           badgeImgs = `<div class="badges">` +
-            [
-              ...systemBadges.map(url => `<img class="badge" src="${url}">`),
-              ...customBadges.map(b => `<img class="badge" src="${b.url}" title="${b.tooltip}">`)
-            ].join("") +
+            [...systemBadges, ...customBadges]
+              .map(badge => `<img class="badge" src="${badge}">`)
+              .join("") +
             `</div>`;
         }
 
         content.innerHTML = `
-          ${bannerUrl ? `<img class="banner" src="${bannerUrl}" alt="User Banner">` : ""}
-          <img
-            class="avatar"
-            src="${avatarUrl}"
-            alt="avatar"
-            style="box-shadow: 0 0 0 3px ${accentColor ?? "#5865f2"};"
-          >
-          <div class="username">
-            ${user.username}${user.discriminator !== "0" ? `#${user.discriminator}` : ""}
-            ${user.bot ? '<span class="bot-tag">BOT</span>' : ''}
-          </div>
-          <div class="id" title="User ID (click to copy)">${user.id}</div>
-          <div class="created">Account Created: ${createdStr}</div>
+          <img class="avatar" src="${avatarUrl}" alt="avatar">
+          <div class="username">${user.username}${user.discriminator !== "0" ? `#${user.discriminator}` : ""}</div>
+          <div class="id">${user.id}</div>
           ${badgeImgs}
         `;
-
-        // Optional: Click user ID to copy
-        const idElem = content.querySelector(".id");
-        if (idElem) {
-          idElem.style.cursor = "pointer";
-          idElem.onclick = () => {
-            navigator.clipboard.writeText(user.id);
-            idElem.textContent = "Copied!";
-            setTimeout(() => {
-              idElem.textContent = user.id;
-            }, 1500);
-          };
-        }
       } catch (err) {
         content.innerHTML = `<div id="error">Failed to load user.</div>`;
-        console.error(err);
       }
     }
 
