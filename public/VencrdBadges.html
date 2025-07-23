@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Vencord Badges</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      padding: 1.5rem;
+      font-family: "Segoe UI", sans-serif;
+      background: #0d0d0f;
+      color: white;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 2rem;
+      font-size: 2rem;
+    }
+
+    .gallery {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .badge {
+      position: relative;
+      width: 64px;
+      height: 64px;
+    }
+
+    .badge img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 0 10px #0007;
+      transition: transform 0.2s ease;
+    }
+
+    .badge img:hover {
+      transform: scale(1.15);
+      z-index: 2;
+    }
+
+    .tooltip {
+      visibility: hidden;
+      background-color: #111;
+      color: #fff;
+      text-align: center;
+      padding: 4px 8px;
+      border-radius: 6px;
+      position: absolute;
+      z-index: 3;
+      bottom: 110%;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    .badge:hover .tooltip {
+      visibility: visible;
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <h1>Vencord Badges</h1>
+  <div class="gallery" id="badgeGallery">Loading badges...</div>
+
+  <script>
+    async function loadBadges() {
+      const res = await fetch("https://badges.vencord.dev/badges.json");
+      const data = await res.json();
+      const gallery = document.getElementById("badgeGallery");
+      gallery.innerHTML = '';
+
+      Object.values(data).forEach(badgeArray => {
+        badgeArray.forEach(badge => {
+          const badgeEl = document.createElement("div");
+          badgeEl.className = "badge";
+
+          const img = document.createElement("img");
+          img.src = badge.badge;
+          img.alt = badge.tooltip || "Badge";
+
+          const tooltip = document.createElement("div");
+          tooltip.className = "tooltip";
+          tooltip.textContent = badge.tooltip || "Badge";
+
+          badgeEl.appendChild(img);
+          badgeEl.appendChild(tooltip);
+          gallery.appendChild(badgeEl);
+        });
+      });
+    }
+
+    loadBadges();
+  </script>
+</body>
+</html>
