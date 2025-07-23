@@ -35,10 +35,10 @@
       font-size: 1.6rem;
       font-weight: bold;
     }
-    .id, .extra {
+    .id {
       font-size: 0.9rem;
       color: #aaa;
-      margin-bottom: 0.7rem;
+      margin-bottom: 1.5rem;
     }
     .badges {
       display: flex;
@@ -98,12 +98,6 @@
       131072: "VERIFIED_DEVELOPER"
     };
 
-    // Convert Discord Snowflake to Date
-    function snowflakeToDate(snowflake) {
-      const discordEpoch = 1420070400000;
-      return new Date(Number(BigInt(snowflake) >> 22n) + discordEpoch);
-    }
-
     async function load() {
       if (!id) {
         content.innerHTML = `<div id="error">Missing <code>?id=</code> in URL.</div>`;
@@ -113,7 +107,7 @@
       try {
         const [userRes, badgeRes] = await Promise.all([
           fetch(`/api?id=${id}`),
-          fetch("https://raw.githubusercontent.com/OBS-Akuma/PisscordLookup/refs/heads/main/Badges.json") 
+          fetch("https://raw.githubusercontent.com/OBS-Akuma/PisscordLookup/refs/heads/main/Badges.json")
         ]);
 
         const user = await userRes.json();
@@ -124,35 +118,34 @@
           return;
         }
 
-        const createdAt = snowflakeToDate(user.id);
         const publicFlags = user.public_flags ?? 0;
         const systemBadges = Object.entries(flagsMap)
           .filter(([bit, _]) => (publicFlags & bit) != 0)
           .map(([_, name]) => badgeIcons[name])
           .filter(Boolean);
 
-        const customBadges = (badgeData[id] || []).map(b => b.badge);
+        // Use entire object for custom badges to get tooltip
+        const customBadges = (badgeData[id] || []);
 
         const avatarUrl = user.avatar
           ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
           : `https://cdn.discordapp.com/embed/avatars/0.png`;
 
         let badgeImgs = "";
+
         if (systemBadges.length > 0 || customBadges.length > 0) {
           badgeImgs = `<div class="badges">` +
-            [...systemBadges, ...customBadges]
-              .map(badge => `<img class="badge" src="${badge}">`)
-              .join("") +
+            [
+              ...systemBadges.map(url => `<img class="badge" src="${url}">`),
+              ...customBadges.map(b => `<img class="badge" src="${b.badge}" title="${b.tooltip || ''}">`)
+            ].join("") +
             `</div>`;
         }
 
         content.innerHTML = `
           <img class="avatar" src="${avatarUrl}" alt="avatar">
           <div class="username">${user.username}${user.discriminator !== "0" ? `#${user.discriminator}` : ""}</div>
-          <div class="id">ID: ${user.id}</div>
-          <div class="extra">Account Created: ${createdAt.toDateString()}</div>
-          ${user.bot ? `<div class="extra">🤖 Bot Account</div>` : ""}
-          ${user.global_name ? `<div class="extra">Global Name: ${user.global_name}</div>` : ""}
+          <div class="id">${user.id}</div>
           ${badgeImgs}
         `;
       } catch (err) {
